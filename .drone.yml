@@ -1,0 +1,54 @@
+kind: pipeline
+name: default
+type: docker
+
+steps:
+  - name: build
+    image: golang:1.17.1
+    environment:
+      GITEE_TOKEN:
+        from_secret: gitee_token
+    commands:
+      - export GOPROXY=https://goproxy.cn,https://goproxy.io,direct
+      - go mod tidy -compat=1.17
+      - echo $(pwd)
+      - make build
+    when:
+      branch: dev
+      event: push
+
+  - name: build-and-push-image
+    image: plugins/docker
+    environment:
+      GITEE_TOKEN:
+        from_secret: gitee_token
+    volumes:
+      - name: docker-sock
+        path: /var/run/docker.sock
+      - name: docker-data
+        path: /var/lib/docker
+    when:
+      branch: master
+      event: push
+    settings:
+      registry: ccr.ccs.tencentyun.com
+      repo: ccr.ccs.tencentyun.com/tiandi0228/go-expire
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password
+      build_args_from_env:
+        - GITEE_TOKEN
+      dockerfile: Dockerfile
+      custom_dns: 119.29.29.29
+      mirror: https://jn2r34ot.mirror.aliyuncs.com
+      tags:
+        - 0.0.4
+
+volumes:
+  - name: docker-sock
+    host:
+      path: /var/run/docker.sock
+  - name: docker-data
+    host:
+      path: /var/lib/docker
